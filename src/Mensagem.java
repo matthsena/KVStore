@@ -3,25 +3,30 @@
 import java.io.Serializable;
 
 public class Mensagem implements Serializable {
-  String type;
+  String method;
   String key;
   String value;
+  String error;
   long timestamp;
 
-  public Mensagem(String type, String key, String value, long timestamp) {
-    this.type = type;
+  public Mensagem(String method, String key, String value, long timestamp) {
+    this.method = method;
     this.key = key;
     this.value = value;
     this.timestamp = timestamp;
   }
 
-  public Mensagem(String type, long timestamp) {
-    this.type = type;
+  public Mensagem(String method, long timestamp) {
+    this.method = method;
     this.timestamp = timestamp;
   }
 
-  public Mensagem(String type, String key) {
-    this.type = type;
+  public Mensagem(String method, String key) {
+    this.method = method;
     this.key = key;
+  }
+
+  public Mensagem(String error) {
+    this.error = error;
   }
 }

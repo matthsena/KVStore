@@ -1,7 +1,6 @@
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,8 +29,8 @@ public class Client {
 
       Socket socket = new Socket(host, port);
 
-      BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-      PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+      ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+      ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
 
       int[] timestamp = { 0 };
 
@@ -60,28 +59,31 @@ public class Client {
           System.out.print("Enter key-value item (e.g. key=value): ");
           String input = scanner.nextLine();
 
-          out.println("PUT " + timestamp[0] + " " + input);
+          String[] parts2 = input.split("=");
+          String key = parts2[0];
+          String value = parts2[1];
 
-          String response = in.readLine();
-          if (response.equals("PUT_OK")) {
+          Mensagem mensagem = new Mensagem("PUT", key, value, timestamp[0]);
+          out.writeObject(mensagem);
+
+          Mensagem response = (Mensagem) in.readObject();
+          if (response.method.equals("PUT_OK")) {
             System.out.println("PUT request successful");
           } else {
-            System.out.println("PUT request failed:" + response);
+            System.out.println("PUT request failed:" + response.value);
           }
         } else if (choice == 2) {
           System.out.print("Enter key: ");
           String key = scanner.nextLine();
 
-          out.println("GET " + key);
+          Mensagem mensagem = new Mensagem("GET", key);
+          out.writeObject(mensagem);
 
-          String response = in.readLine();
-          if (response.startsWith("GET_OK")) {
-            String[] parts2 = response.split(" ");
-            int timestamp2 = Integer.parseInt(parts2[1]);
-            String value = parts2[2];
-            System.out.println("Value for key " + key + " (timestamp " + timestamp2 + "): " + value);
+          Mensagem response = (Mensagem) in.readObject();
+          if (response.method.equals("GET_OK")) {
+            System.out.println("Value for key " + key + " (timestamp " + response.timestamp + "): " + response.value);
           } else {
-            System.out.println("GET request failed: " + response);
+            System.out.println("GET request failed: " + response.method + " -- " + response.value);
           }
         } else if (choice == 3) {
           break;
@@ -91,9 +93,11 @@ public class Client {
       }
 
       thread.interrupt();
-      in.close();
       out.close();
+      in.close();
       socket.close();
+    } catch (ClassNotFoundException e) {
+      e.printStackTrace();
     }
   }
 }

@@ -1,7 +1,6 @@
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Scanner;
@@ -45,75 +44,62 @@ public class Server {
   private static void handleClientRequest(Socket clientSocket, String host, int port, String leaderHost,
       int leaderPort) {
     try {
-      BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-      PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+      ObjectInputStream in = new ObjectInputStream(clientSocket.getInputStream());
+      ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream());
 
-      String inputLine;
-      while ((inputLine = in.readLine()) != null) {
-        System.out.println("Received message from client: " + inputLine);
-
-        // Parse the HTTP request method
-        String[] parts = inputLine.split(" ");
-        String method = parts[0];
+      Mensagem mensagem;
+      while ((mensagem = (Mensagem) in.readObject()) != null) {
+        System.out.println("Received message from client: " + mensagem.method);
 
         // Check if this server is the leader
-        if (host.equals(leaderHost) && port == leaderPort && method.equals("PUT")) {
+        if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("PUT")) {
           System.out.println("Receive PUT");
           // This server is the leader and the method is PUT, handle the request
-          parts = inputLine.split(" ");
-          String key = parts[1];
-          String value = parts[2];
-          int[] servers = { 10098, 10099 };
+          int[] servers = { 10098 };
+          // int[] servers = { 10098, 10099 };
 
-          keyValueStore.put(key, value);
+          keyValueStore.put(mensagem.key, mensagem.value);
 
           // Replicate the value to the other servers
-          replicateValue(key, value, servers);
+          replicateValue(mensagem.key, mensagem.value, servers);
 
-          out.println("PUT_OK");
-        } else if (method.equals("PUT")) {
+          out.writeObject(new Mensagem("PUT_OK", mensagem.timestamp));
+        } else if (mensagem.method.equals("PUT")) {
           System.out.println("redirect to leader...");
           // This server is not the leader and the method is PUT, redirect the request to
           // the leader
           try (Socket socket = new Socket(leaderHost, leaderPort);
-              PrintWriter outToLeader = new PrintWriter(socket.getOutputStream(), true);
-              BufferedReader inFromLeader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
-            outToLeader.println(inputLine);
-            String response = inFromLeader.readLine();
-            out.println(response);
-          } catch (IOException e) {
+              ObjectOutputStream outToLeader = new ObjectOutputStream(socket.getOutputStream());
+              ObjectInputStream inFromLeader = new ObjectInputStream(socket.getInputStream())) {
+            outToLeader.writeObject(mensagem);
+            Mensagem response = (Mensagem) inFromLeader.readObject();
+            out.writeObject(response);
+          } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
           }
-        } else if (method.equals("GET")) {
+        } else if (mensagem.method.equals("GET")) {
           // This server received a GET request, return the corresponding value
-          parts = inputLine.split(" ");
-          String key = parts[1];
-
-          String value = keyValueStore.get(key);
-          if (value != null) {
-            out.println(value);
+          String keyValue = keyValueStore.get(mensagem.key);
+          if (keyValue != null) {
+            out.writeObject(new Mensagem("GET_OK", mensagem.key, keyValue, 100000));
           } else {
-            out.println("Key not found");
+            out.writeObject(new Mensagem("Key not found"));
           }
-        } else if (method.equals("REPLICATION")) {
+        } else if (mensagem.method.equals("REPLICATION")) {
           // This server received a replication request, update the local
           // ConcurrentHashMap
-          parts = inputLine.split(" ");
-          String key = parts[1];
-          String value = parts[2];
-
-          keyValueStore.put(key, value);
+          keyValueStore.put(mensagem.key, mensagem.value);
         } else {
           // This server is not the leader or the method is not PUT, GET, or REPLICATION,
           // process the request
-          out.println("Server received message: " + inputLine);
+          out.writeObject(new Mensagem("Server received message: " + mensagem.method));
         }
       }
 
       in.close();
       out.close();
       clientSocket.close();
-    } catch (IOException e) {
+    } catch (IOException | ClassNotFoundException e) {
       e.printStackTrace();
     }
   }
@@ -123,8 +109,8 @@ public class Server {
     for (int port : ports) {
       new Thread(() -> {
         try (Socket socket = new Socket("localhost", port);
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
-          out.println("REPLICATION " + key + " " + value);
+            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
+          out.writeObject(new Mensagem("REPLICATION", key, value, System.currentTimeMillis()));
         } catch (IOException e) {
           e.printStackTrace();
         }

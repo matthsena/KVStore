@@ -1,8 +1,11 @@
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -55,15 +58,19 @@ public class Server {
         if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("PUT")) {
           System.out.println("Receive PUT");
           // This server is the leader and the method is PUT, handle the request
-          int[] servers = { 10098 };
-          // int[] servers = { 10098, 10099 };
+          int[] servers = { 10098, 10099 };
 
           keyValueStore.put(mensagem.key, mensagem.value);
 
           // Replicate the value to the other servers
-          replicateValue(mensagem.key, mensagem.value, servers);
+          if (replicateValue(mensagem.key, mensagem.value, servers)) {
+            System.out.println("Replication successful");
+            out.writeObject(new Mensagem("PUT_OK", mensagem.timestamp));
+          } else {
+            System.out.println("Replication failed");
+            out.writeObject(new Mensagem("PUT_ERROR"));
+          }
 
-          out.writeObject(new Mensagem("PUT_OK", mensagem.timestamp));
         } else if (mensagem.method.equals("PUT")) {
           System.out.println("redirect to leader...");
           // This server is not the leader and the method is PUT, redirect the request to
@@ -80,15 +87,26 @@ public class Server {
         } else if (mensagem.method.equals("GET")) {
           // This server received a GET request, return the corresponding value
           String keyValue = keyValueStore.get(mensagem.key);
-          if (keyValue != null) {
-            out.writeObject(new Mensagem("GET_OK", mensagem.key, keyValue, 100000));
+          System.out.println("Receive GET with key: " + mensagem.key + " and value: " + keyValue);
+          if (!keyValue.isEmpty()) {
+            out.writeObject(new Mensagem("GET_OK", mensagem.key, keyValue, 10000));
           } else {
             out.writeObject(new Mensagem("Key not found"));
           }
         } else if (mensagem.method.equals("REPLICATION")) {
           // This server received a replication request, update the local
           // ConcurrentHashMap
+          System.out.println("Receive REPLICATION with values: " + mensagem.key + " " + mensagem.value);
           keyValueStore.put(mensagem.key, mensagem.value);
+          System.out.println("Updated local key-value store");
+
+          for (String key : keyValueStore.keySet()) {
+            System.out.println(key + " " + keyValueStore.get(key));
+          }
+
+          System.out.println("Sending REPLICATION_OK");
+
+          out.writeObject(new Mensagem("REPLICATION_OK", mensagem.timestamp));
         } else {
           // This server is not the leader or the method is not PUT, GET, or REPLICATION,
           // process the request
@@ -99,22 +117,44 @@ public class Server {
       in.close();
       out.close();
       clientSocket.close();
+    } catch (EOFException e) {
+      System.err.println("Client closed the connection unexpectedly");
     } catch (IOException | ClassNotFoundException e) {
       e.printStackTrace();
     }
   }
 
-  private static void replicateValue(String key, String value, int[] ports) {
+  private static boolean replicateValue(String key, String value, int[] ports) {
     // Replicate the value to the other servers using threads
+    List<Thread> threads = new ArrayList<>();
+
     for (int port : ports) {
-      new Thread(() -> {
+      Thread thread = new Thread(() -> {
         try (Socket socket = new Socket("localhost", port);
-            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())) {
+            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
           out.writeObject(new Mensagem("REPLICATION", key, value, System.currentTimeMillis()));
-        } catch (IOException e) {
+          Mensagem response = (Mensagem) in.readObject();
+          if (!response.method.equals("REPLICATION_OK")) {
+            throw new RuntimeException("Replication failed on port " + port);
+          }
+        } catch (IOException | ClassNotFoundException e) {
           e.printStackTrace();
         }
-      }).start();
+      });
+      threads.add(thread);
+      thread.start();
     }
+
+    // Wait for all threads to finish
+    for (Thread thread : threads) {
+      try {
+        thread.join();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+
+    return true;
   }
 }

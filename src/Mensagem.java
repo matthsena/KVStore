@@ -9,6 +9,12 @@ public class Mensagem implements Serializable {
   String error;
   long timestamp;
 
+  @Override
+  public String toString() {
+    return "Valores [method=" + method + ", key=" + key + ", value=" + value + ", timestamp=" + timestamp + ", error="
+        + error + "]";
+  }
+
   public Mensagem(String method, String key, String value, long timestamp) {
     this.method = method;
     this.key = key;

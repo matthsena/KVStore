@@ -18,6 +18,16 @@ public class Client {
     }
   }
 
+  private static Socket getRandomSocket(List<ServerInfo> servers) throws IOException {
+    Random random = new Random();
+    int index = random.nextInt(servers.size());
+    ServerInfo serverInfo = servers.get(index);
+
+    System.out.println("Connecting to server " + serverInfo.host + ":" + serverInfo.port);
+
+    return new Socket(serverInfo.host, serverInfo.port);
+  }
+
   public static void main(String[] args) throws IOException {
     List<ServerInfo> servers = new ArrayList<>();
 
@@ -62,13 +72,7 @@ public class Client {
 
         if (choice == 1) {
           // RANDOM
-          Random random = new Random();
-          int index = random.nextInt(servers.size());
-          ServerInfo serverInfo = servers.get(index);
-
-          System.out.println("Connecting to server " + serverInfo.host + ":" + serverInfo.port);
-
-          socket = new Socket(serverInfo.host, serverInfo.port);
+          socket = getRandomSocket(servers);
           out = new ObjectOutputStream(socket.getOutputStream());
           in = new ObjectInputStream(socket.getInputStream());
           // END RANDOM
@@ -91,13 +95,7 @@ public class Client {
           }
         } else if (choice == 2) {
           // RANDOM
-          Random random = new Random();
-          int index = random.nextInt(servers.size());
-          ServerInfo serverInfo = servers.get(index);
-
-          System.out.println("Connecting to server " + serverInfo.host + ":" + serverInfo.port);
-
-          socket = new Socket(serverInfo.host, serverInfo.port);
+          socket = getRandomSocket(servers);
           out = new ObjectOutputStream(socket.getOutputStream());
           in = new ObjectInputStream(socket.getInputStream());
           // END RANDOM

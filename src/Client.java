@@ -18,19 +18,9 @@ public class Client {
         servers.add(input);
       }
 
-      Random random = new Random();
-      int index = random.nextInt(servers.size());
-      String server = servers.get(index);
-
-      System.out.println("Connecting to server " + server);
-      String[] parts = server.split(":");
-      String host = parts[0];
-      int port = Integer.parseInt(parts[1]);
-
-      Socket socket = new Socket(host, port);
-
-      ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-      ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+      Socket socket = null;
+      ObjectOutputStream out = null;
+      ObjectInputStream in = null;
 
       int[] timestamp = { 0 };
 
@@ -56,6 +46,21 @@ public class Client {
         scanner.nextLine();
 
         if (choice == 1) {
+          // RANDOM
+          Random random = new Random();
+          int index = random.nextInt(servers.size());
+          String server = servers.get(index);
+
+          System.out.println("Connecting to server " + server);
+          String[] parts = server.split(":");
+          String host = parts[0];
+          int port = Integer.parseInt(parts[1]);
+
+          socket = new Socket(host, port);
+          out = new ObjectOutputStream(socket.getOutputStream());
+          in = new ObjectInputStream(socket.getInputStream());
+          // END RANDOM
+
           System.out.print("Enter key-value item (e.g. key=value): ");
           String input = scanner.nextLine();
 
@@ -73,6 +78,21 @@ public class Client {
             System.out.println("PUT request failed:" + response.value);
           }
         } else if (choice == 2) {
+          // RANDOM
+          Random random = new Random();
+          int index = random.nextInt(servers.size());
+          String server = servers.get(index);
+
+          System.out.println("Connecting to server " + server);
+          String[] parts = server.split(":");
+          String host = parts[0];
+          int port = Integer.parseInt(parts[1]);
+
+          socket = new Socket(host, port);
+          out = new ObjectOutputStream(socket.getOutputStream());
+          in = new ObjectInputStream(socket.getInputStream());
+          // END RANDOM
+
           System.out.print("Enter key: ");
           String key = scanner.nextLine();
 

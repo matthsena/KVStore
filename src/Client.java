@@ -8,14 +8,29 @@ import java.util.Random;
 import java.util.Scanner;
 
 public class Client {
+  private static class ServerInfo {
+    public final String host;
+    public final int port;
+
+    public ServerInfo(String host, int port) {
+      this.host = host;
+      this.port = port;
+    }
+  }
+
   public static void main(String[] args) throws IOException {
-    List<String> servers = new ArrayList<>();
+    List<ServerInfo> servers = new ArrayList<>();
 
     try (Scanner scanner = new Scanner(System.in)) {
       for (int i = 0; i < 3; i++) {
-        System.out.print("Enter server host and port (e.g. localhost:1234): ");
-        String input = scanner.nextLine();
-        servers.add(input);
+        System.out.print("Enter server host: ");
+        String host = scanner.nextLine();
+
+        System.out.print("Enter server port: ");
+        int port = scanner.nextInt();
+        scanner.nextLine();
+
+        servers.add(new ServerInfo(host, port));
       }
 
       Socket socket = null;
@@ -49,14 +64,11 @@ public class Client {
           // RANDOM
           Random random = new Random();
           int index = random.nextInt(servers.size());
-          String server = servers.get(index);
+          ServerInfo serverInfo = servers.get(index);
 
-          System.out.println("Connecting to server " + server);
-          String[] parts = server.split(":");
-          String host = parts[0];
-          int port = Integer.parseInt(parts[1]);
+          System.out.println("Connecting to server " + serverInfo.host + ":" + serverInfo.port);
 
-          socket = new Socket(host, port);
+          socket = new Socket(serverInfo.host, serverInfo.port);
           out = new ObjectOutputStream(socket.getOutputStream());
           in = new ObjectInputStream(socket.getInputStream());
           // END RANDOM
@@ -81,14 +93,11 @@ public class Client {
           // RANDOM
           Random random = new Random();
           int index = random.nextInt(servers.size());
-          String server = servers.get(index);
+          ServerInfo serverInfo = servers.get(index);
 
-          System.out.println("Connecting to server " + server);
-          String[] parts = server.split(":");
-          String host = parts[0];
-          int port = Integer.parseInt(parts[1]);
+          System.out.println("Connecting to server " + serverInfo.host + ":" + serverInfo.port);
 
-          socket = new Socket(host, port);
+          socket = new Socket(serverInfo.host, serverInfo.port);
           out = new ObjectOutputStream(socket.getOutputStream());
           in = new ObjectInputStream(socket.getInputStream());
           // END RANDOM

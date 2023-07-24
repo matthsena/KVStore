@@ -103,13 +103,17 @@ public class Client {
           System.out.print("Enter key: ");
           String key = scanner.nextLine();
 
-          Mensagem mensagem = new Mensagem("GET", key);
+          Mensagem mensagem = new Mensagem("GET", key, timestamp[0]);
           out.writeObject(mensagem);
 
           Mensagem response = (Mensagem) in.readObject();
-          if (response.method.equals("GET_OK")) {
+          if (response == null) {
+            System.out.println("CHAVE NAO EXISTE");
+          } else if (response.method.equals("GET_OK")) {
             System.out.println("GET request successful => " + response.toString());
             System.out.println("Value for key " + key + " (timestamp " + response.timestamp + "): " + response.value);
+          } else if (response.method.equals("TRY_OTHER_SERVER_OR_LATER")) {
+            System.out.println("TRY_OTHER_SERVER_OR_LATER. !!");
           } else {
             System.out.println("GET request failed: " + response.method + " -- " + response.value);
           }

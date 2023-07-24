@@ -32,7 +32,17 @@ public class Mensagem implements Serializable {
     this.key = key;
   }
 
-  public Mensagem(String error) {
-    this.error = error;
+  public Mensagem(String method, String key, long timestamp) {
+    this.method = method;
+    this.key = key;
+    this.timestamp = timestamp;
   }
+
+  public Mensagem(String method) {
+    this.method = method;
+  }
+
+  // public Mensagem(String error) {
+  // this.error = error;
+  // }
 }

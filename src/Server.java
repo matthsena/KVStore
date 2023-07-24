@@ -6,11 +6,36 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Server {
-  private static ConcurrentHashMap<String, String> keyValueStore = new ConcurrentHashMap<>();
+  private static class KeyValueTimestamp {
+    public String key;
+    public String value;
+    public long timestamp;
+
+    public KeyValueTimestamp(String key, String value, long timestamp) {
+      this.key = key;
+      this.value = value;
+      this.timestamp = timestamp;
+    }
+
+    public boolean isEmpty() {
+      if (this.key.isEmpty() && this.value.isEmpty() && Objects.isNull(this.timestamp)) {
+        return true;
+      }
+      return false;
+    }
+
+    @Override
+    public String toString() {
+      return "Valores [key=" + key + ", value=" + value + ", timestamp=" + timestamp + "]";
+    }
+  }
+
+  private static ConcurrentHashMap<String, KeyValueTimestamp> keyValueStore = new ConcurrentHashMap<>();
 
   public static void main(String[] args) throws IOException {
     String host;
@@ -57,9 +82,11 @@ public class Server {
       if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("PUT")) {
         System.out.println("Receive PUT");
         // This server is the leader and the method is PUT, handle the request
-        int[] servers = { 10098, 10099 };
+        int[] servers = { 10097, 10098, 10099 };
 
-        keyValueStore.put(mensagem.key, mensagem.value);
+        KeyValueTimestamp item = new KeyValueTimestamp(mensagem.key, mensagem.value, mensagem.timestamp);
+        keyValueStore.put(mensagem.key, item);
+
         // Replicate the value to the other servers
         if (replicateValue(mensagem, servers)) {
           System.out.println("Replication successful");
@@ -84,18 +111,28 @@ public class Server {
         }
       } else if (mensagem.method.equals("GET")) {
         // This server received a GET request, return the corresponding value
-        String keyValue = keyValueStore.get(mensagem.key);
-        System.out.println("Receive GET with key: " + mensagem.key + " and value: " + keyValue);
-        if (!keyValue.isEmpty()) {
-          out.writeObject(new Mensagem("GET_OK", mensagem.key, keyValue, 10000));
+        KeyValueTimestamp data = keyValueStore.get(mensagem.key);
+
+        System.out.println("Receive GET with key: " + mensagem.key + " and value: " + data.toString());
+        if (!data.isEmpty()) {
+          if (mensagem.timestamp < data.timestamp) {
+            System.out.println("SERVER " + data.timestamp + "CLIENT: " + mensagem.timestamp);
+            out.writeObject(new Mensagem("TRY_OTHER_SERVER_OR_LATER"));
+          } else {
+            out.writeObject(new Mensagem("GET_OK", data.key, data.value, data.timestamp));
+          }
         } else {
-          out.writeObject(new Mensagem("Key not found"));
+          System.out.println("NOT FOUND");
+          out.writeObject(null);
         }
+      } else if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("REPLICATION")) {
+        out.writeObject(new Mensagem("REPLICATION_OK"));
       } else if (mensagem.method.equals("REPLICATION")) {
-        // This server received a replication request, update the local
-        // ConcurrentHashMap
         System.out.println("Receive REPLICATION with values: " + mensagem.key + " " + mensagem.value);
-        keyValueStore.put(mensagem.key, mensagem.value);
+
+        KeyValueTimestamp item = new KeyValueTimestamp(mensagem.key, mensagem.value, mensagem.timestamp);
+        keyValueStore.put(mensagem.key, item);
+
         System.out.println("Updated local key-value store");
 
         for (String key : keyValueStore.keySet()) {
@@ -104,7 +141,7 @@ public class Server {
 
         System.out.println("Sending REPLICATION_OK");
 
-        out.writeObject(new Mensagem("REPLICATION_OK", mensagem.timestamp));
+        out.writeObject(new Mensagem("REPLICATION_OK"));
       } else {
         // This server is not the leader or the method is not PUT, GET, or REPLICATION,
         // process the request

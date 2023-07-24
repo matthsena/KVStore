@@ -18,16 +18,6 @@ public class Client {
     }
   }
 
-  private static Socket getRandomSocket(List<ServerInfo> servers) throws IOException {
-    Random random = new Random();
-    int index = random.nextInt(servers.size());
-    ServerInfo serverInfo = servers.get(index);
-
-    System.out.println("Connecting to server " + serverInfo.host + ":" + serverInfo.port);
-
-    return new Socket(serverInfo.host, serverInfo.port);
-  }
-
   public static void main(String[] args) throws IOException {
     List<ServerInfo> servers = new ArrayList<>();
 
@@ -65,14 +55,18 @@ public class Client {
         System.out.println("Select an option:");
         System.out.println("1. PUT");
         System.out.println("2. GET");
-        System.out.println("3. Exit");
 
         int choice = scanner.nextInt();
         scanner.nextLine();
 
         if (choice == 1) {
           // RANDOM
-          socket = getRandomSocket(servers);
+          Random random = new Random();
+          int index = random.nextInt(servers.size());
+          ServerInfo serverInfo = servers.get(index);
+
+          socket = new Socket(serverInfo.host, serverInfo.port);
+
           out = new ObjectOutputStream(socket.getOutputStream());
           in = new ObjectInputStream(socket.getInputStream());
           // END RANDOM
@@ -89,13 +83,18 @@ public class Client {
 
           Mensagem response = (Mensagem) in.readObject();
           if (response.method.equals("PUT_OK")) {
-            System.out.println("PUT request successful");
+            System.out.println("PUT_OK key: " + key + " value " + value + " timestamp " + timestamp
+                + " realizada no servidor " + serverInfo.host + ":" + serverInfo.port);
           } else {
             System.out.println("PUT request failed:" + response.value);
           }
         } else if (choice == 2) {
           // RANDOM
-          socket = getRandomSocket(servers);
+          Random random = new Random();
+          int index = random.nextInt(servers.size());
+          ServerInfo serverInfo = servers.get(index);
+
+          socket = new Socket(serverInfo.host, serverInfo.port);
           out = new ObjectOutputStream(socket.getOutputStream());
           in = new ObjectInputStream(socket.getInputStream());
           // END RANDOM
@@ -107,20 +106,19 @@ public class Client {
           out.writeObject(mensagem);
 
           Mensagem response = (Mensagem) in.readObject();
+
           if (response == null) {
-            System.out.println("CHAVE NAO EXISTE");
+            System.out.println("GET key: " + key + " value: null obtido do servidor " + serverInfo.host + ":"
+                + serverInfo.port + ", meu timestamp " + timestamp[0] + " and server timestamp " + "serverTimestamp");
           } else if (response.method.equals("GET_OK")) {
-            System.out.println("GET request successful => " + response.toString());
-            System.out.println("Value for key " + key + " (timestamp " + response.timestamp + "): " + response.value);
+            System.out.println("GET key: " + key + " value: " + response.value + " obtido do servidor "
+                + serverInfo.host + ":"
+                + serverInfo.port + ", meu timestamp " + timestamp[0] + " and server timestamp " + "serverTimestamp");
           } else if (response.method.equals("TRY_OTHER_SERVER_OR_LATER")) {
-            System.out.println("TRY_OTHER_SERVER_OR_LATER. !!");
-          } else {
-            System.out.println("GET request failed: " + response.method + " -- " + response.value);
+            System.out.println("TRY_OTHER_SERVER_OR_LATER");
           }
-        } else if (choice == 3) {
-          break;
         } else {
-          System.out.println("Invalid choice");
+          break;
         }
       }
 

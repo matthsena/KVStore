@@ -55,9 +55,6 @@ public class Server {
 
     String leaderHost = host;
 
-    System.out.println("Starting server on " + host + ":" + port);
-    System.out.println("Leader is " + leaderHost + ":" + leaderPort);
-
     try (ServerSocket serverSocket = new ServerSocket(port)) {
       while (true) {
         Socket clientSocket = serverSocket.accept();
@@ -72,16 +69,9 @@ public class Server {
         ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream())) {
       Mensagem mensagem = (Mensagem) in.readObject();
 
-      if (mensagem == null) {
-        return;
-      }
-
-      System.out.println("Received message from client: " + mensagem.method);
-
       // Check if this server is the leader
       if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("PUT")) {
-        System.out.println("Receive PUT");
-        // This server is the leader and the method is PUT, handle the request
+        System.out.println("Cliente [IP]:[porta] PUT key: " + mensagem.key + " value: " + mensagem.value);
         int[] servers = { 10097, 10098, 10099 };
 
         KeyValueTimestamp item = new KeyValueTimestamp(mensagem.key, mensagem.value, mensagem.timestamp);
@@ -89,17 +79,16 @@ public class Server {
 
         // Replicate the value to the other servers
         if (replicateValue(mensagem, servers)) {
-          System.out.println("Replication successful");
+          System.out.println(
+              "Enviando PUT_OK ao Cliente [IP]:[porta] da key: " + mensagem.key + " ts: " + mensagem.timestamp);
           out.writeObject(new Mensagem("PUT_OK", mensagem.timestamp));
         } else {
-          System.out.println("Replication failed");
           out.writeObject(new Mensagem("PUT_ERROR"));
         }
 
       } else if (mensagem.method.equals("PUT")) {
-        System.out.println("redirect to leader...");
-        // This server is not the leader and the method is PUT, redirect the request to
-        // the leader
+        System.out.println("Encaminhando PUT key: " + mensagem.key + " value: " + mensagem.value);
+
         try (Socket socket = new Socket(leaderHost, leaderPort);
             ObjectOutputStream outToLeader = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream inFromLeader = new ObjectInputStream(socket.getInputStream())) {
@@ -113,49 +102,32 @@ public class Server {
         // This server received a GET request, return the corresponding value
         KeyValueTimestamp data = keyValueStore.get(mensagem.key);
 
-        System.out.println("Receive GET with key: " + mensagem.key + " and value: " + data.toString());
+        System.out.println(
+            "Cliente [IP]:[porta] GET key:[key] ts:[timestamp]. Meu ts é [timestamp_da_key], portanto devolvendo [valor ou erro]");
         if (!data.isEmpty()) {
           if (mensagem.timestamp < data.timestamp) {
-            System.out.println("SERVER " + data.timestamp + "CLIENT: " + mensagem.timestamp);
             out.writeObject(new Mensagem("TRY_OTHER_SERVER_OR_LATER"));
           } else {
             out.writeObject(new Mensagem("GET_OK", data.key, data.value, data.timestamp));
           }
         } else {
-          System.out.println("NOT FOUND");
           out.writeObject(null);
         }
       } else if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("REPLICATION")) {
         out.writeObject(new Mensagem("REPLICATION_OK"));
       } else if (mensagem.method.equals("REPLICATION")) {
-        System.out.println("Receive REPLICATION with values: " + mensagem.key + " " + mensagem.value);
+        System.out
+            .println("REPLICATION key:" + mensagem.key + " value: " + mensagem.value + "ts: " + mensagem.timestamp);
 
         KeyValueTimestamp item = new KeyValueTimestamp(mensagem.key, mensagem.value, mensagem.timestamp);
         keyValueStore.put(mensagem.key, item);
 
-        System.out.println("Updated local key-value store");
-
-        for (String key : keyValueStore.keySet()) {
-          System.out.println(key + " " + keyValueStore.get(key));
-        }
-
-        System.out.println("Sending REPLICATION_OK");
-
         out.writeObject(new Mensagem("REPLICATION_OK"));
-      } else {
-        // This server is not the leader or the method is not PUT, GET, or REPLICATION,
-        // process the request
-        out.writeObject(new Mensagem("Server received message: " + mensagem.method));
       }
     } catch (EOFException e) {
-      // EOFException is fine here, it means the client has closed its end of the
-      // socket
-      System.out.println("Client closed connection.");
       e.printStackTrace();
 
     } catch (IOException | ClassNotFoundException e) {
-      System.err.println("Error handling client request from " + clientSocket.getInetAddress() + ":"
-          + clientSocket.getPort() + ": " + e.getMessage());
       e.printStackTrace();
     }
   }

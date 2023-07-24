@@ -18,7 +18,7 @@ public class Client {
     }
   }
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) throws IOException, ClassNotFoundException {
     List<ServerInfo> servers = new ArrayList<>();
 
     try (Scanner scanner = new Scanner(System.in)) {
@@ -32,10 +32,6 @@ public class Client {
 
         servers.add(new ServerInfo(host, port));
       }
-
-      Socket socket = null;
-      ObjectOutputStream out = null;
-      ObjectInputStream in = null;
 
       int[] timestamp = { 0 };
 
@@ -59,75 +55,55 @@ public class Client {
         int choice = scanner.nextInt();
         scanner.nextLine();
 
-        if (choice == 1) {
-          // RANDOM
-          Random random = new Random();
-          int index = random.nextInt(servers.size());
-          ServerInfo serverInfo = servers.get(index);
+        Random random = new Random();
+        ServerInfo serverInfo = servers.get(random.nextInt(servers.size()));
 
-          socket = new Socket(serverInfo.host, serverInfo.port);
+        try (Socket socket = new Socket(serverInfo.host, serverInfo.port);
+            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
 
-          out = new ObjectOutputStream(socket.getOutputStream());
-          in = new ObjectInputStream(socket.getInputStream());
-          // END RANDOM
+          if (choice == 1) {
+            System.out.print("Enter key-value item (e.g. key=value): ");
+            String input = scanner.nextLine();
 
-          System.out.print("Enter key-value item (e.g. key=value): ");
-          String input = scanner.nextLine();
+            String[] parts2 = input.split("=");
+            String key = parts2[0];
+            String value = parts2[1];
 
-          String[] parts2 = input.split("=");
-          String key = parts2[0];
-          String value = parts2[1];
+            Mensagem mensagem = new Mensagem("PUT", key, value, timestamp[0]);
+            out.writeObject(mensagem);
 
-          Mensagem mensagem = new Mensagem("PUT", key, value, timestamp[0]);
-          out.writeObject(mensagem);
+            Mensagem response = (Mensagem) in.readObject();
+            if (response.method.equals("PUT_OK")) {
+              System.out.println("PUT_OK key: " + key + " value " + value + " timestamp " + timestamp[0]
+                  + " realizada no servidor " + serverInfo.host + ":" + serverInfo.port);
+            } else {
+              System.out.println("PUT request failed:" + response.value);
+            }
+          } else if (choice == 2) {
+            System.out.print("Enter key: ");
+            String key = scanner.nextLine();
 
-          Mensagem response = (Mensagem) in.readObject();
-          if (response.method.equals("PUT_OK")) {
-            System.out.println("PUT_OK key: " + key + " value " + value + " timestamp " + timestamp
-                + " realizada no servidor " + serverInfo.host + ":" + serverInfo.port);
+            Mensagem mensagem = new Mensagem("GET", key, timestamp[0]);
+            out.writeObject(mensagem);
+
+            Mensagem response = (Mensagem) in.readObject();
+
+            if (response == null) {
+              System.out.println("KEY_NOT_FOUND");
+            } else if (response.method.equals("GET_OK")) {
+              System.out.println("GET key: " + key + " value: " + response.value + " obtido do servidor "
+                  + serverInfo.host + ":" + serverInfo.port + ", meu timestamp " + timestamp[0]
+                  + " and server timestamp " + response.timestamp);
+            } else if (response.method.equals("TRY_OTHER_SERVER_OR_LATER")) {
+              System.out.println("TRY_OTHER_SERVER_OR_LATER");
+            }
           } else {
-            System.out.println("PUT request failed:" + response.value);
+            break;
           }
-        } else if (choice == 2) {
-          // RANDOM
-          Random random = new Random();
-          int index = random.nextInt(servers.size());
-          ServerInfo serverInfo = servers.get(index);
-
-          socket = new Socket(serverInfo.host, serverInfo.port);
-          out = new ObjectOutputStream(socket.getOutputStream());
-          in = new ObjectInputStream(socket.getInputStream());
-          // END RANDOM
-
-          System.out.print("Enter key: ");
-          String key = scanner.nextLine();
-
-          Mensagem mensagem = new Mensagem("GET", key, timestamp[0]);
-          out.writeObject(mensagem);
-
-          Mensagem response = (Mensagem) in.readObject();
-
-          if (response == null) {
-            System.out.println("GET key: " + key + " value: null obtido do servidor " + serverInfo.host + ":"
-                + serverInfo.port + ", meu timestamp " + timestamp[0] + " and server timestamp " + "serverTimestamp");
-          } else if (response.method.equals("GET_OK")) {
-            System.out.println("GET key: " + key + " value: " + response.value + " obtido do servidor "
-                + serverInfo.host + ":"
-                + serverInfo.port + ", meu timestamp " + timestamp[0] + " and server timestamp " + "serverTimestamp");
-          } else if (response.method.equals("TRY_OTHER_SERVER_OR_LATER")) {
-            System.out.println("TRY_OTHER_SERVER_OR_LATER");
-          }
-        } else {
-          break;
         }
       }
-
       thread.interrupt();
-      out.close();
-      in.close();
-      socket.close();
-    } catch (ClassNotFoundException e) {
-      e.printStackTrace();
     }
   }
 }

@@ -39,8 +39,13 @@ public class Server {
         ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream())) {
       Mensagem mensagem = (Mensagem) in.readObject();
 
+      String clientIP = clientSocket.getInetAddress().getHostAddress();
+      int clientPort = clientSocket.getPort();
+
       if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("PUT")) {
-        System.out.println("Cliente [IP]:[porta] PUT key: " + mensagem.key + " value: " + mensagem.value);
+
+        System.out.println(
+            "Cliente " + clientIP + ":" + clientPort + " PUT key: " + mensagem.key + " value: " + mensagem.value);
         int[] servers = { 10097, 10098, 10099 };
 
         long newTimestamp = Instant.now().toEpochMilli();
@@ -52,7 +57,8 @@ public class Server {
 
         if (replicateValue(mensagem, servers)) {
           System.out.println(
-              "Enviando PUT_OK ao Cliente [IP]:[porta] da key: " + mensagem.key + " ts: " + newTimestamp);
+              "Enviando PUT_OK ao Cliente " + clientIP + ":" + clientPort + " da key: " + mensagem.key + " ts: "
+                  + newTimestamp);
           out.writeObject(new Mensagem("PUT_OK", newTimestamp));
         } else {
           out.writeObject(new Mensagem("PUT_ERROR"));
@@ -72,7 +78,8 @@ public class Server {
       } else if (mensagem.method.equals("GET")) {
         Valores data = keyValueStore.get(mensagem.key);
 
-        System.out.println("Cliente [IP]:[porta] GET key:" + mensagem.key + " ts:" + mensagem.timestamp + ". Meu ts é "
+        System.out.println("Cliente " + clientIP + ":" + clientPort + " GET key:" + mensagem.key + " ts:"
+            + mensagem.timestamp + ". Meu ts é "
             + data.timestamp + ", portanto devolvendo "
             + (mensagem.timestamp < data.timestamp ? "TRY_OTHER_SERVER_OR_LATER" : "GET_OK " + data.value));
         out.writeObject(new Mensagem(mensagem.timestamp > data.timestamp ? "TRY_OTHER_SERVER_OR_LATER" : "GET_OK",

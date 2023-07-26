@@ -103,7 +103,7 @@ public class Client {
             if (response == null) {
               System.out.println("KEY_NOT_FOUND");
             } else if (response.method.equals("GET_OK")) {
-              System.out.println("GET key: " + key + " value: " + response.value + " obtido do servidor "
+              System.out.println("GET key: " + response.key + " value: " + response.value + " obtido do servidor "
                   + serverInfo.host + ":" + serverInfo.port + ", meu timestamp " + clientKeyTimestamp
                   + " and server timestamp " + response.timestamp);
 

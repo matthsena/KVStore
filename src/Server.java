@@ -87,12 +87,18 @@ public class Server {
 
         // Verifica se o timestamp da mensagem é mais recente do que o timestamp do
         // valor armazenado
-        System.out.println("Cliente " + clientIP + ":" + clientPort + " GET key:" + mensagem.key + " ts:"
-            + mensagem.timestamp + ". Meu ts é "
-            + data.timestamp + ", portanto devolvendo "
-            + (mensagem.timestamp < data.timestamp ? "TRY_OTHER_SERVER_OR_LATER" : "GET_OK " + data.value));
-        out.writeObject(new Mensagem(mensagem.timestamp > data.timestamp ? "TRY_OTHER_SERVER_OR_LATER" : "GET_OK",
-            data.value, data.timestamp));
+        if (mensagem.timestamp > data.timestamp) {
+          // Se for maior, retorna TRY_OTHER_SERVER_OR_LATER
+          System.out.println("Cliente " + clientIP + ":" + clientPort + " GET key:" + mensagem.key + " ts:"
+              + mensagem.timestamp + ". Meu ts é " + data.timestamp
+              + ", portanto devolvendo TRY_OTHER_SERVER_OR_LATER");
+          out.writeObject(new Mensagem("TRY_OTHER_SERVER_OR_LATER"));
+        } else {
+          // Se for menor, retorna GET_OK com o valor e o timestamp atualizado
+          System.out.println("Cliente " + clientIP + ":" + clientPort + " GET key:" + mensagem.key + " ts:"
+              + mensagem.timestamp + ". Meu ts é " + data.timestamp + ", portanto devolvendo GET_OK " + data.value);
+          out.writeObject(new Mensagem("GET_OK", mensagem.key, data.value, data.timestamp));
+        }
       } else if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("REPLICATION")) {
         // Responde com uma mensagem de confirmação para a replicação
         out.writeObject(new Mensagem("REPLICATION_OK"));

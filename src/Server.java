@@ -42,19 +42,24 @@ public class Server {
       String clientIP = clientSocket.getInetAddress().getHostAddress();
       int clientPort = clientSocket.getPort();
 
+      // Se este servidor é o líder e a mensagem é um PUT
       if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("PUT")) {
 
         System.out.println(
             "Cliente " + clientIP + ":" + clientPort + " PUT key: " + mensagem.key + " value: " + mensagem.value);
         int[] servers = { 10097, 10098, 10099 };
 
+        // Cria um novo timestamp para a mensagem
         long newTimestamp = Instant.now().toEpochMilli();
 
+        // Adiciona o valor ao armazenamento de chave-valor
         Valores item = new Valores(mensagem.value, newTimestamp);
         keyValueStore.put(mensagem.key, item);
 
+        // Atualiza o timestamp da mensagem
         mensagem.timestamp = newTimestamp;
 
+        // Replica o valor em outros servidores
         if (replicateValue(mensagem, servers)) {
           System.out.println(
               "Enviando PUT_OK ao Cliente " + clientIP + ":" + clientPort + " da key: " + mensagem.key + " ts: "
@@ -64,6 +69,7 @@ public class Server {
           out.writeObject(new Mensagem("PUT_ERROR"));
         }
       } else if (mensagem.method.equals("PUT")) {
+        // Encaminha a mensagem para o líder
         System.out.println("Encaminhando PUT key: " + mensagem.key + " value: " + mensagem.value);
 
         try (Socket socket = new Socket(leaderHost, leaderPort);
@@ -76,8 +82,11 @@ public class Server {
           e.printStackTrace();
         }
       } else if (mensagem.method.equals("GET")) {
+        // Obtém o valor da chave do armazenamento de chave-valor
         Valores data = keyValueStore.get(mensagem.key);
 
+        // Verifica se o timestamp da mensagem é mais recente do que o timestamp do
+        // valor armazenado
         System.out.println("Cliente " + clientIP + ":" + clientPort + " GET key:" + mensagem.key + " ts:"
             + mensagem.timestamp + ". Meu ts é "
             + data.timestamp + ", portanto devolvendo "
@@ -85,14 +94,17 @@ public class Server {
         out.writeObject(new Mensagem(mensagem.timestamp > data.timestamp ? "TRY_OTHER_SERVER_OR_LATER" : "GET_OK",
             data.value, data.timestamp));
       } else if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("REPLICATION")) {
+        // Responde com uma mensagem de confirmação para a replicação
         out.writeObject(new Mensagem("REPLICATION_OK"));
       } else if (mensagem.method.equals("REPLICATION")) {
+        // Adiciona o valor ao armazenamento de chave-valor
         System.out
             .println("REPLICATION key:" + mensagem.key + " value: " + mensagem.value + " ts: " + mensagem.timestamp);
 
         Valores item = new Valores(mensagem.value, mensagem.timestamp);
         keyValueStore.put(mensagem.key, item);
 
+        // Responde com uma mensagem de confirmação para a replicação
         out.writeObject(new Mensagem("REPLICATION_OK"));
       }
     } catch (IOException | ClassNotFoundException e) {
@@ -103,6 +115,7 @@ public class Server {
   private static boolean replicateValue(Mensagem msg, int[] ports) {
     List<Thread> threads = new ArrayList<>();
 
+    // Para cada porta de servidor, cria uma nova thread para replicar o valor
     for (int port : ports) {
       Thread thread = new Thread(() -> {
 
@@ -110,6 +123,7 @@ public class Server {
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
 
+          // Define a mensagem como uma mensagem de replicação
           msg.method = "REPLICATION";
           out.writeObject(msg);
           Mensagem mensagem = (Mensagem) in.readObject();
@@ -124,6 +138,7 @@ public class Server {
       thread.start();
     }
 
+    // Aguarda todas as threads terminarem
     threads.forEach(thread -> {
       try {
         thread.join();

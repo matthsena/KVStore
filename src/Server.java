@@ -48,6 +48,8 @@ public class Server {
         Valores item = new Valores(mensagem.value, newTimestamp);
         keyValueStore.put(mensagem.key, item);
 
+        mensagem.timestamp = newTimestamp;
+
         if (replicateValue(mensagem, servers)) {
           System.out.println(
               "Enviando PUT_OK ao Cliente [IP]:[porta] da key: " + mensagem.key + " ts: " + newTimestamp);

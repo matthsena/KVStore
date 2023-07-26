@@ -13,13 +13,12 @@ public class Server {
   private static ConcurrentHashMap<String, Valores> keyValueStore = new ConcurrentHashMap<>();
 
   public static void main(String[] args) throws IOException {
-
     try (Scanner scanner = new Scanner(System.in)) {
-      System.out.print("Enter the host name: ");
+      System.out.print("Digite o IP: ");
       String host = scanner.nextLine();
-      System.out.print("Enter the port number: ");
+      System.out.print("Digite o número da porta: ");
       int port = scanner.nextInt();
-      System.out.print("Enter the leader port number: ");
+      System.out.print("Digite o número da porta do LIDER: ");
       int leaderPort = scanner.nextInt();
 
       String leaderHost = host;
@@ -42,12 +41,13 @@ public class Server {
       String clientIP = clientSocket.getInetAddress().getHostAddress();
       int clientPort = clientSocket.getPort();
 
-      // Se este servidor é o líder e a mensagem é um PUT
-      if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("PUT")) {
+      // define se o servidor é o líder
+      boolean isLeader = host.equals(leaderHost) && port == leaderPort;
 
+      if (isLeader && mensagem.method.equals("PUT")) {
+        // Se este servidor é o líder e a mensagem é um PUT
         System.out.println(
             "Cliente " + clientIP + ":" + clientPort + " PUT key: " + mensagem.key + " value: " + mensagem.value);
-        int[] servers = { 10097, 10098, 10099 };
 
         // Cria um novo timestamp para a mensagem
         long newTimestamp = Instant.now().toEpochMilli();
@@ -60,10 +60,9 @@ public class Server {
         mensagem.timestamp = newTimestamp;
 
         // Replica o valor em outros servidores
-        if (replicateValue(mensagem, servers)) {
-          System.out.println(
-              "Enviando PUT_OK ao Cliente " + clientIP + ":" + clientPort + " da key: " + mensagem.key + " ts: "
-                  + newTimestamp);
+        if (replicateValue(mensagem, new int[] { 10097, 10098, 10099 })) {
+          System.out.println("Enviando PUT_OK ao Cliente " + clientIP + ":" + clientPort + " da key: " + mensagem.key
+              + " ts: " + newTimestamp);
           out.writeObject(new Mensagem("PUT_OK", newTimestamp));
         } else {
           out.writeObject(new Mensagem("PUT_ERROR"));
@@ -85,13 +84,13 @@ public class Server {
         // Obtém o valor da chave do armazenamento de chave-valor
         Valores data = keyValueStore.get(mensagem.key);
 
-        // Verifica se o timestamp da mensagem é mais recente do que o timestamp do
+        // Verifica se o timestamp da mensagem é mais atualizado do que o timestamp do
         // valor armazenado
         if (mensagem.timestamp > data.timestamp) {
           // Se for maior, retorna TRY_OTHER_SERVER_OR_LATER
-          System.out.println("Cliente " + clientIP + ":" + clientPort + " GET key:" + mensagem.key + " ts:"
-              + mensagem.timestamp + ". Meu ts é " + data.timestamp
-              + ", portanto devolvendo TRY_OTHER_SERVER_OR_LATER");
+          System.out.println(
+              "Cliente " + clientIP + ":" + clientPort + " GET key:" + mensagem.key + " ts:" + mensagem.timestamp
+                  + ". Meu ts é " + data.timestamp + ", portanto devolvendo TRY_OTHER_SERVER_OR_LATER");
           out.writeObject(new Mensagem("TRY_OTHER_SERVER_OR_LATER"));
         } else {
           // Se for menor, retorna GET_OK com o valor e o timestamp atualizado
@@ -99,11 +98,11 @@ public class Server {
               + mensagem.timestamp + ". Meu ts é " + data.timestamp + ", portanto devolvendo GET_OK " + data.value);
           out.writeObject(new Mensagem("GET_OK", mensagem.key, data.value, data.timestamp));
         }
-      } else if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("REPLICATION")) {
+      } else if (isLeader && mensagem.method.equals("REPLICATION")) {
         // Responde com uma mensagem de confirmação para a replicação
         out.writeObject(new Mensagem("REPLICATION_OK"));
       } else if (mensagem.method.equals("REPLICATION")) {
-        // Adiciona o valor ao armazenamento de chave-valor
+        // Adiciona o valor ao ConcurrentHashMap
         System.out
             .println("REPLICATION key:" + mensagem.key + " value: " + mensagem.value + " ts: " + mensagem.timestamp);
 
@@ -118,6 +117,7 @@ public class Server {
     }
   }
 
+  // Função para replicar o valor em outros servidores
   private static boolean replicateValue(Mensagem msg, int[] ports) {
     List<Thread> threads = new ArrayList<>();
 
@@ -152,7 +152,7 @@ public class Server {
         e.printStackTrace();
       }
     });
-
+    // Retorna true se todas as réplicas foram bem sucedidas
     return true;
   }
 

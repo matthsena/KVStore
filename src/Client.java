@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Client {
   private static class ServerInfo {
@@ -20,6 +21,7 @@ public class Client {
 
   public static void main(String[] args) throws IOException, ClassNotFoundException {
     List<ServerInfo> servers = new ArrayList<>();
+    ConcurrentHashMap<String, Long> keyTimestamp = new ConcurrentHashMap<>();
 
     try (Scanner scanner = new Scanner(System.in)) {
       for (int i = 0; i < 3; i++) {
@@ -32,20 +34,6 @@ public class Client {
 
         servers.add(new ServerInfo(host, port));
       }
-
-      int[] timestamp = { 0 };
-
-      Thread thread = new Thread(() -> {
-        while (true) {
-          try {
-            Thread.sleep(1000);
-          } catch (InterruptedException e) {
-            e.printStackTrace();
-          }
-          timestamp[0]++;
-        }
-      });
-      thread.start();
 
       while (true) {
         System.out.println("Select an option:");
@@ -70,13 +58,16 @@ public class Client {
             String key = parts2[0];
             String value = parts2[1];
 
-            Mensagem mensagem = new Mensagem("PUT", key, value, timestamp[0]);
+            Mensagem mensagem = new Mensagem("PUT", key, value);
             out.writeObject(mensagem);
 
             Mensagem response = (Mensagem) in.readObject();
             if (response.method.equals("PUT_OK")) {
-              System.out.println("PUT_OK key: " + key + " value " + value + " timestamp " + timestamp[0]
+              System.out.println("PUT_OK key: " + key + " value " + value + " timestamp " + response.timestamp
                   + " realizada no servidor " + serverInfo.host + ":" + serverInfo.port);
+
+              keyTimestamp.put(key, response.timestamp);
+
             } else {
               System.out.println("PUT request failed:" + response.value);
             }
@@ -84,7 +75,9 @@ public class Client {
             System.out.print("Enter key: ");
             String key = scanner.nextLine();
 
-            Mensagem mensagem = new Mensagem("GET", key, timestamp[0]);
+            long clientKeyTimestamp = keyTimestamp.getOrDefault(key, 0L);
+
+            Mensagem mensagem = new Mensagem("GET", key, clientKeyTimestamp);
             out.writeObject(mensagem);
 
             Mensagem response = (Mensagem) in.readObject();
@@ -93,8 +86,10 @@ public class Client {
               System.out.println("KEY_NOT_FOUND");
             } else if (response.method.equals("GET_OK")) {
               System.out.println("GET key: " + key + " value: " + response.value + " obtido do servidor "
-                  + serverInfo.host + ":" + serverInfo.port + ", meu timestamp " + timestamp[0]
+                  + serverInfo.host + ":" + serverInfo.port + ", meu timestamp " + response.timestamp
                   + " and server timestamp " + response.timestamp);
+
+              keyTimestamp.put(key, response.timestamp);
             } else if (response.method.equals("TRY_OTHER_SERVER_OR_LATER")) {
               System.out.println("TRY_OTHER_SERVER_OR_LATER");
             }
@@ -103,7 +98,6 @@ public class Client {
           }
         }
       }
-      thread.interrupt();
     }
   }
 }

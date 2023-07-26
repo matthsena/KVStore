@@ -22,6 +22,12 @@ public class Mensagem implements Serializable {
     this.timestamp = timestamp;
   }
 
+  public Mensagem(String method, String key, String value) {
+    this.method = method;
+    this.key = key;
+    this.value = value;
+  }
+
   public Mensagem(String method, long timestamp) {
     this.method = method;
     this.timestamp = timestamp;

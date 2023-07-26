@@ -3,6 +3,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -42,13 +43,15 @@ public class Server {
         System.out.println("Cliente [IP]:[porta] PUT key: " + mensagem.key + " value: " + mensagem.value);
         int[] servers = { 10097, 10098, 10099 };
 
-        Valores item = new Valores(mensagem.value, mensagem.timestamp);
+        long newTimestamp = Instant.now().toEpochMilli();
+
+        Valores item = new Valores(mensagem.value, newTimestamp);
         keyValueStore.put(mensagem.key, item);
 
         if (replicateValue(mensagem, servers)) {
           System.out.println(
-              "Enviando PUT_OK ao Cliente [IP]:[porta] da key: " + mensagem.key + " ts: " + mensagem.timestamp);
-          out.writeObject(new Mensagem("PUT_OK", mensagem.timestamp));
+              "Enviando PUT_OK ao Cliente [IP]:[porta] da key: " + mensagem.key + " ts: " + newTimestamp);
+          out.writeObject(new Mensagem("PUT_OK", newTimestamp));
         } else {
           out.writeObject(new Mensagem("PUT_ERROR"));
         }
@@ -70,7 +73,7 @@ public class Server {
         System.out.println("Cliente [IP]:[porta] GET key:" + mensagem.key + " ts:" + mensagem.timestamp + ". Meu ts é "
             + data.timestamp + ", portanto devolvendo "
             + (mensagem.timestamp < data.timestamp ? "TRY_OTHER_SERVER_OR_LATER" : "GET_OK " + data.value));
-        out.writeObject(new Mensagem(mensagem.timestamp < data.timestamp ? "TRY_OTHER_SERVER_OR_LATER" : "GET_OK",
+        out.writeObject(new Mensagem(mensagem.timestamp > data.timestamp ? "TRY_OTHER_SERVER_OR_LATER" : "GET_OK",
             data.value, data.timestamp));
       } else if (host.equals(leaderHost) && port == leaderPort && mensagem.method.equals("REPLICATION")) {
         out.writeObject(new Mensagem("REPLICATION_OK"));
@@ -93,9 +96,11 @@ public class Server {
 
     for (int port : ports) {
       Thread thread = new Thread(() -> {
+
         try (Socket socket = new Socket("localhost", port);
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream())) {
+
           msg.method = "REPLICATION";
           out.writeObject(msg);
           Mensagem mensagem = (Mensagem) in.readObject();

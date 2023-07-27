@@ -84,19 +84,25 @@ public class Server {
         // Obtém o valor da chave do armazenamento de chave-valor
         Valores data = keyValueStore.get(mensagem.key);
 
-        // Verifica se o timestamp da mensagem é mais atualizado do que o timestamp do
-        // valor armazenado
-        if (mensagem.timestamp > data.timestamp) {
-          // Se for maior, retorna TRY_OTHER_SERVER_OR_LATER
-          System.out.println(
-              "Cliente " + clientIP + ":" + clientPort + " GET key:" + mensagem.key + " ts:" + mensagem.timestamp
-                  + ". Meu ts é " + data.timestamp + ", portanto devolvendo TRY_OTHER_SERVER_OR_LATER");
-          out.writeObject(new Mensagem("TRY_OTHER_SERVER_OR_LATER"));
+        // se a chave nao existir, retorna nulo
+        if (data == null) {
+          out.writeObject(null);
         } else {
-          // Se for menor, retorna GET_OK com o valor e o timestamp atualizado
-          System.out.println("Cliente " + clientIP + ":" + clientPort + " GET key:" + mensagem.key + " ts:"
-              + mensagem.timestamp + ". Meu ts é " + data.timestamp + ", portanto devolvendo GET_OK " + data.value);
-          out.writeObject(new Mensagem("GET_OK", mensagem.key, data.value, data.timestamp));
+
+          // Verifica se o timestamp da mensagem é mais atualizado do que o timestamp do
+          // valor armazenado
+          if (mensagem.timestamp > data.timestamp) {
+            // Se for maior, retorna TRY_OTHER_SERVER_OR_LATER
+            System.out.println(
+                "Cliente " + clientIP + ":" + clientPort + " GET key:" + mensagem.key + " ts:" + mensagem.timestamp
+                    + ". Meu ts é " + data.timestamp + ", portanto devolvendo TRY_OTHER_SERVER_OR_LATER");
+            out.writeObject(new Mensagem("TRY_OTHER_SERVER_OR_LATER"));
+          } else {
+            // Se for menor, retorna GET_OK com o valor e o timestamp atualizado
+            System.out.println("Cliente " + clientIP + ":" + clientPort + " GET key:" + mensagem.key + " ts:"
+                + mensagem.timestamp + ". Meu ts é " + data.timestamp + ", portanto devolvendo GET_OK " + data.value);
+            out.writeObject(new Mensagem("GET_OK", mensagem.key, data.value, data.timestamp));
+          }
         }
       } else if (isLeader && mensagem.method.equals("REPLICATION")) {
         // Responde com uma mensagem de confirmação para a replicação

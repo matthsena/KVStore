@@ -38,10 +38,10 @@ public class Client {
         if (choice == 1) {
           // Insercao de informações de servidor para cada um dos três
           for (int i = 0; i < 3; i++) {
-            System.out.printf("Digite o IP do servidor %: ", i + 1);
+            System.out.print("Digite o IP do servidor: ");
             String host = scanner.nextLine();
 
-            System.out.printf("Digite a porta do servidor %: ", i + 1);
+            System.out.print("Digite a porta do servidor: ");
             int port = scanner.nextInt();
             scanner.nextLine();
 

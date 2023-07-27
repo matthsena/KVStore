@@ -6,14 +6,7 @@ public class Mensagem implements Serializable {
   String method;
   String key;
   String value;
-  String error;
   long timestamp;
-
-  @Override
-  public String toString() {
-    return "Valores [method=" + method + ", key=" + key + ", value=" + value + ", timestamp=" + timestamp + ", error="
-        + error + "]";
-  }
 
   // PUT - client
   public Mensagem(String method, String key, String value) {
